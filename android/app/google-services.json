@@ -1,15 +1,15 @@
 {
   "project_info": {
     "project_number": "123456789012",
-    "project_id": "family-time-placeholder",
-    "storage_bucket": "family-time-placeholder.appspot.com"
+    "project_id": "orbit-family-placeholder",
+    "storage_bucket": "orbit-family-placeholder.appspot.com"
   },
   "client": [
     {
       "client_info": {
         "mobilesdk_app_id": "1:123456789012:android:abcdef0123456789abcdef",
         "android_client_info": {
-          "package_name": "com.ayrixx.family_time"
+          "package_name": "com.orbitfamily.app"
         }
       },
       "oauth_client": [],

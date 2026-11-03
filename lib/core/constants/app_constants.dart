@@ -1,10 +1,15 @@
 class AppConstants {
+  // App Info
+  static const String appName = 'Orbit Family';
+  static const String appTagline = 'Freedom within a circle.';
+
   // Firestore Collections
   static const String colUsers = 'users';
   static const String colFamilies = 'families';
   static const String colChildren = 'children';
   static const String colUsageDays = 'usageDays';
   static const String colRules = 'rules';
+  static const String colLinkCodes = 'linkCodes';
 
   // Child Rules document
   static const String docMainRule = 'main';
@@ -32,5 +37,5 @@ class AppConstants {
   static const String prefChildName = 'linked_child_name';
 
   // MethodChannel
-  static const String methodChannelName = 'com.ayrixx.family_time/usage';
+  static const String methodChannelName = 'com.orbitfamily.app/usage';
 }

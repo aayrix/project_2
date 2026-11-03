@@ -1,11 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/constants/app_constants.dart';
 import '../models/user_model.dart';
 
 class AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  bool _isGoogleSignInInitialized = false;
 
   AuthRepository({
     FirebaseAuth? auth,
@@ -19,80 +21,64 @@ class AuthRepository {
   /// Currently logged in Firebase User (or null if signed out).
   User? get currentUser => _auth.currentUser;
 
-  /// Signs up a parent with email and password, and initializes their user profile in Firestore.
-  Future<UserModel> signUpParent({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
-
-    final user = credential.user;
-    if (user == null) {
-      throw FirebaseAuthException(
-        code: 'USER_NULL',
-        message: 'Registration succeeded but no user was returned.',
-      );
+  /// Initializes GoogleSignIn plugin (required in google_sign_in 7.x).
+  Future<void> _ensureGoogleSignInInitialized() async {
+    if (!_isGoogleSignInInitialized) {
+      await GoogleSignIn.instance.initialize();
+      _isGoogleSignInInitialized = true;
     }
-
-    // Update display name
-    await user.updateDisplayName(name.trim());
-
-    // Create user document in users/{uid}
-    final userModel = UserModel(
-      uid: user.uid,
-      name: name.trim(),
-      email: email.trim(),
-      role: AppConstants.roleParent,
-      familyId: null,
-      createdAt: DateTime.now(),
-    );
-
-    await _firestore
-        .collection(AppConstants.colUsers)
-        .doc(user.uid)
-        .set(userModel.toMap());
-
-    return userModel;
   }
 
-  /// Logs in a parent with email and password.
-  Future<UserModel> signInParent({
-    required String email,
-    required String password,
-  }) async {
-    final credential = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+  /// Signs in a parent using Google Sign-In and creates their profile in users/{uid} on first sign-in.
+  Future<UserModel?> signInParentWithGoogle() async {
+    await _ensureGoogleSignInInitialized();
 
-    final user = credential.user;
-    if (user == null) {
-      throw FirebaseAuthException(
-        code: 'USER_NULL',
-        message: 'Sign in succeeded but no user was returned.',
+    try {
+      final GoogleSignInAccount googleAccount =
+          await GoogleSignIn.instance.authenticate();
+
+      final GoogleSignInAuthentication googleAuth = googleAccount.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
       );
-    }
 
-    final userDoc = await getUserProfile(user.uid);
-    if (userDoc == null) {
-      // Create profile fallback if missing
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
+
+      final User? user = userCredential.user;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'USER_NULL',
+          message: 'Google Sign-In completed but no Firebase user was returned.',
+        );
+      }
+
+      // Check if user record exists in users/{uid}
+      final existingProfile = await getUserProfile(user.uid);
+      if (existingProfile != null) {
+        return existingProfile;
+      }
+
+      // First time sign-in: create user profile
       final newProfile = UserModel(
         uid: user.uid,
-        name: user.displayName ?? 'Parent',
+        name: user.displayName ?? googleAccount.displayName ?? 'Parent',
         email: user.email,
+        photoUrl: user.photoURL ?? googleAccount.photoUrl,
         role: AppConstants.roleParent,
         familyId: null,
         createdAt: DateTime.now(),
       );
+
       await saveUserProfile(newProfile);
       return newProfile;
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        // User deliberately dismissed the Google account picker
+        return null;
+      }
+      rethrow;
     }
-
-    return userDoc;
   }
 
   /// Signs in anonymously for a child device.
@@ -104,7 +90,7 @@ class AuthRepository {
     return credential.user!;
   }
 
-  /// Fetches user profile document from Firestore.
+  /// Fetches user profile document from users/{uid}.
   Future<UserModel?> getUserProfile(String uid) async {
     final doc =
         await _firestore.collection(AppConstants.colUsers).doc(uid).get();
@@ -114,7 +100,7 @@ class AuthRepository {
     return UserModel.fromMap(doc.data()!, doc.id);
   }
 
-  /// Saves or updates user profile in Firestore.
+  /// Saves or updates user profile in users/{uid}.
   Future<void> saveUserProfile(UserModel userModel) async {
     await _firestore
         .collection(AppConstants.colUsers)
@@ -122,8 +108,14 @@ class AuthRepository {
         .set(userModel.toMap(), SetOptions(merge: true));
   }
 
-  /// Signs out the current user.
+  /// Signs out both Google and Firebase sessions.
   Future<void> signOut() async {
+    try {
+      await _ensureGoogleSignInInitialized();
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {
+      // Ignore if not initialized
+    }
     await _auth.signOut();
   }
 }

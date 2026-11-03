@@ -4,6 +4,7 @@ class UserModel {
   final String uid;
   final String name;
   final String? email;
+  final String? photoUrl;
   final String role; // "parent" or "child"
   final String? familyId;
   final DateTime createdAt;
@@ -12,6 +13,7 @@ class UserModel {
     required this.uid,
     required this.name,
     this.email,
+    this.photoUrl,
     required this.role,
     this.familyId,
     required this.createdAt,
@@ -34,6 +36,7 @@ class UserModel {
       uid: uid,
       name: map['name'] as String? ?? '',
       email: map['email'] as String?,
+      photoUrl: map['photoUrl'] as String?,
       role: map['role'] as String? ?? 'parent',
       familyId: map['familyId'] as String?,
       createdAt: parsedCreatedAt,
@@ -44,6 +47,7 @@ class UserModel {
     return {
       'name': name,
       'email': email,
+      'photoUrl': photoUrl,
       'role': role,
       'familyId': familyId,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -53,6 +57,7 @@ class UserModel {
   UserModel copyWith({
     String? name,
     String? email,
+    String? photoUrl,
     String? role,
     String? familyId,
     DateTime? createdAt,
@@ -61,6 +66,7 @@ class UserModel {
       uid: uid,
       name: name ?? this.name,
       email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl,
       role: role ?? this.role,
       familyId: familyId ?? this.familyId,
       createdAt: createdAt ?? this.createdAt,

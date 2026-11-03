@@ -26,60 +26,30 @@ final persistedRoleProvider = FutureProvider<String?>((ref) async {
   return prefs.getString(AppConstants.prefUserRole);
 });
 
-/// Controller handling sign in, sign up, and sign out operations.
+/// Controller handling Google Sign-In and sign-out operations.
 class AuthController extends AsyncNotifier<void> {
   @override
   FutureOr<void> build() {
     return null;
   }
 
-  Future<bool> signInParent({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signInWithGoogle() async {
     state = const AsyncValue.loading();
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final user = await authRepo.signInParent(
-        email: email,
-        password: password,
-      );
+      final user = await authRepo.signInParentWithGoogle();
 
-      // Persist role
+      if (user == null) {
+        // User cancelled sign in
+        state = const AsyncValue.data(null);
+        return false;
+      }
+
+      // Persist parent role
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AppConstants.prefUserRole, AppConstants.roleParent);
 
-      // Ensure family exists
-      final familyRepo = ref.read(familyRepositoryProvider);
-      await familyRepo.getOrCreateFamily(user);
-
-      state = const AsyncValue.data(null);
-      return true;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      return false;
-    }
-  }
-
-  Future<bool> signUpParent({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    state = const AsyncValue.loading();
-    try {
-      final authRepo = ref.read(authRepositoryProvider);
-      final user = await authRepo.signUpParent(
-        name: name,
-        email: email,
-        password: password,
-      );
-
-      // Persist role
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(AppConstants.prefUserRole, AppConstants.roleParent);
-
-      // Automatically create a family for the parent
+      // Automatically create or fetch family for the parent
       final familyRepo = ref.read(familyRepositoryProvider);
       await familyRepo.getOrCreateFamily(user);
 

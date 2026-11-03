@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Brand seed colors
-  static const Color primarySeed = Color(0xFF3F51B5); // Indigo
-  static const Color accentSeed = Color(0xFF009688); // Teal
+  // Orbit Brand Palette: Deep Space Navy & Warm Orbit Amber
+  static const Color primarySeed = Color(0xFF1E3A8A); // Orbit Blue
+  static const Color accentSeed = Color(0xFFF59E0B); // Amber Glow
 
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primarySeed,
+      secondary: accentSeed,
       brightness: Brightness.light,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: const Color(0xFFF8F9FE),
+      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
@@ -24,7 +25,7 @@ class AppTheme {
           color: colorScheme.onSurface,
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
+          letterSpacing: -0.3,
         ),
       ),
       cardTheme: CardThemeData(
@@ -48,7 +49,7 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -59,32 +60,12 @@ class AppTheme {
           borderSide: BorderSide(color: colorScheme.error),
         ),
       ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          minimumSize: const Size.fromHeight(52),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         ),
       ),
     );

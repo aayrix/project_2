@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ayrixx.family_time"
+    namespace = "com.orbitfamily.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ayrixx.family_time"
+        applicationId = "com.orbitfamily.app"
         minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -36,6 +36,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 }
 

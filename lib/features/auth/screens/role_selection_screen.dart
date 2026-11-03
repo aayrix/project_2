@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../child_device/screens/link_device_screen.dart';
 import 'parent_auth_screen.dart';
 
@@ -18,25 +19,26 @@ class RoleSelectionScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(flex: 1),
-              // App Icon & Title
+
+              // Orbit Logo
               Center(
                 child: Container(
-                  width: 80,
-                  height: 80,
+                  width: 88,
+                  height: 88,
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.family_restroom_rounded,
-                    size: 44,
-                    color: colorScheme.onPrimaryContainer,
+                    Icons.bubble_chart_rounded,
+                    size: 48,
+                    color: colorScheme.primary,
                   ),
                 ),
               ),
               const SizedBox(height: 24),
               Text(
-                'FamilyTime',
+                AppConstants.appName,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -45,10 +47,11 @@ class RoleSelectionScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Set healthy digital habits and monitor your children\'s screen time.',
+                AppConstants.appTagline,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
                 ),
               ),
               const Spacer(flex: 2),
@@ -67,7 +70,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 icon: Icons.supervisor_account_rounded,
                 title: 'I am a Parent',
                 description:
-                    'Create your family, manage children, and view screen time dashboards.',
+                    'Sign in with Google, manage children, and view screen time dashboards.',
                 color: colorScheme.primary,
                 onTap: () {
                   Navigator.of(context).push(
@@ -84,7 +87,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 icon: Icons.smartphone_rounded,
                 title: 'This is my Child\'s Device',
                 description:
-                    'Connect this phone to a family using a 6-digit link code.',
+                    'Connect this phone to your family using a 6-digit link code.',
                 color: colorScheme.secondary,
                 onTap: () {
                   Navigator.of(context).push(
