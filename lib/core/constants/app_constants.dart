@@ -27,8 +27,8 @@ class AppConstants {
   static const String categoryCommunication = 'communication';
   static const String categoryOther = 'other';
 
-  // Link code expiration duration (24 hours)
-  static const Duration linkCodeValidity = Duration(hours: 24);
+  // Link code expiration duration (15 minutes)
+  static const Duration linkCodeValidity = Duration(minutes: 15);
 
   // SharedPreferences Keys
   static const String prefUserRole = 'user_role';

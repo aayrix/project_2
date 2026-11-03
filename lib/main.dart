@@ -27,7 +27,7 @@ void main() async {
 
   runApp(
     ProviderScope(
-      child: FamilyTimeApp(
+      child: OrbitFamilyApp(
         isFirebaseReady: firebaseInitialized,
         firebaseErrorMessage: firebaseError,
       ),
@@ -35,11 +35,11 @@ void main() async {
   );
 }
 
-class FamilyTimeApp extends ConsumerWidget {
+class OrbitFamilyApp extends ConsumerWidget {
   final bool isFirebaseReady;
   final String? firebaseErrorMessage;
 
-  const FamilyTimeApp({
+  const OrbitFamilyApp({
     super.key,
     required this.isFirebaseReady,
     this.firebaseErrorMessage,
@@ -48,7 +48,7 @@ class FamilyTimeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
-      title: 'FamilyTime',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: !isFirebaseReady
@@ -140,7 +140,7 @@ class _FirebaseSetupScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'To run FamilyTime, download your google-services.json from the Firebase Console and place it in android/app/google-services.json.',
+                'To run Orbit Family, download your google-services.json from the Firebase Console and place it in android/app/google-services.json.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),

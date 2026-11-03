@@ -39,7 +39,6 @@ class FamilyRepository {
 
     if (query.docs.isNotEmpty) {
       final familyId = query.docs.first.id;
-      // Update user document
       await _firestore
           .collection(AppConstants.colUsers)
           .doc(parentUser.uid)
@@ -63,7 +62,7 @@ class FamilyRepository {
     return newFamilyRef.id;
   }
 
-  /// Generates a random 6-digit code string.
+  /// Generates a random 6-digit code string (from 100000 to 999999).
   String generateSixDigitCode() {
     final random = Random();
     final number = 100000 + random.nextInt(900000);
@@ -71,6 +70,7 @@ class FamilyRepository {
   }
 
   /// Adds a new child profile to the parent's family with an initial 24h 6-digit link code.
+  /// Also registers the code in the top-level linkCodes/{code} collection for secure single-doc lookup.
   Future<ChildModel> addChild({
     required String familyId,
     required String name,
@@ -97,7 +97,17 @@ class FamilyRepository {
       lastSeen: null,
     );
 
+    // 1. Create child document in families/{familyId}/children/{childId}
     await childRef.set(child.toMap());
+
+    // 2. Create index document in linkCodes/{code}
+    await _firestore.collection(AppConstants.colLinkCodes).doc(linkCode).set({
+      'familyId': familyId,
+      'childId': childRef.id,
+      'expiresAt': Timestamp.fromDate(expiresAt),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
     return child;
   }
 
@@ -105,10 +115,19 @@ class FamilyRepository {
   Future<String> regenerateLinkCode({
     required String familyId,
     required String childId,
+    String? oldCode,
   }) async {
     final newCode = generateSixDigitCode();
     final newExpires = DateTime.now().add(AppConstants.linkCodeValidity);
 
+    // Clean up old code index if present
+    if (oldCode != null && oldCode.isNotEmpty) {
+      try {
+        await _firestore.collection(AppConstants.colLinkCodes).doc(oldCode).delete();
+      } catch (_) {}
+    }
+
+    // Update child document
     await _firestore
         .collection(AppConstants.colFamilies)
         .doc(familyId)
@@ -117,6 +136,14 @@ class FamilyRepository {
         .update({
       'linkCode': newCode,
       'linkCodeExpiresAt': Timestamp.fromDate(newExpires),
+    });
+
+    // Create new code index in linkCodes/{newCode}
+    await _firestore.collection(AppConstants.colLinkCodes).doc(newCode).set({
+      'familyId': familyId,
+      'childId': childId,
+      'expiresAt': Timestamp.fromDate(newExpires),
+      'createdAt': FieldValue.serverTimestamp(),
     });
 
     return newCode;
@@ -150,62 +177,65 @@ class FamilyRepository {
     });
   }
 
-  /// Finds a child profile by link code across all family trees using collectionGroup query.
-  Future<LinkCodeResult?> findChildByLinkCode(String code) async {
-    final trimmed = code.trim();
-    final snapshot = await _firestore
-        .collectionGroup(AppConstants.colChildren)
-        .where('linkCode', isEqualTo: trimmed)
-        .limit(1)
+  /// Reads linkCodes/{code} (get only). Returns the code document data or null.
+  /// Does NOT read the child document — the rules only allow the child device to
+  /// read it after deviceUid is set to its own uid.
+  Future<Map<String, dynamic>?> getLinkCodeData(String code) async {
+    final trimmedCode = code.trim();
+    if (trimmedCode.length != 6) return null;
+
+    final codeDoc = await _firestore
+        .collection(AppConstants.colLinkCodes)
+        .doc(trimmedCode)
         .get();
 
-    if (snapshot.docs.isEmpty) {
+    if (!codeDoc.exists || codeDoc.data() == null) {
       return null;
     }
 
-    final doc = snapshot.docs.first;
-    final child = ChildModel.fromMap(doc.data(), doc.id);
-
-    // Extract familyId from doc.reference.parent.parent (families/{familyId})
-    final familyRef = doc.reference.parent.parent;
-    if (familyRef == null) {
-      return null;
-    }
-
-    return LinkCodeResult(
-      familyId: familyRef.id,
-      child: child,
-    );
+    return codeDoc.data()!;
   }
 
   /// Links a child's device UID and device name to the child profile.
+  /// Performs the child-document update and linkCodes/{code} delete in ONE
+  /// atomic WriteBatch, then writes users/{deviceUid} as a child record.
+  /// The child-document update changes only: deviceUid, deviceName, linkedAt, lastSeen.
   Future<void> linkChildDevice({
     required String familyId,
     required String childId,
     required String childName,
+    required String linkCode,
     required String deviceUid,
     required String deviceName,
   }) async {
     final now = DateTime.now();
+    final batch = _firestore.batch();
 
-    // 1. Update child document
-    await _firestore
+    // 1. Update child document — only these four fields.
+    final childRef = _firestore
         .collection(AppConstants.colFamilies)
         .doc(familyId)
         .collection(AppConstants.colChildren)
-        .doc(childId)
-        .update({
+        .doc(childId);
+
+    batch.update(childRef, {
       'deviceUid': deviceUid,
       'deviceName': deviceName,
       'linkedAt': Timestamp.fromDate(now),
       'lastSeen': Timestamp.fromDate(now),
     });
 
-    // 2. Create/update child user record in users/{uid}
+    // 2. Delete consumed linkCodes/{code} in the same batch.
+    batch.delete(_firestore.collection(AppConstants.colLinkCodes).doc(linkCode.trim()));
+
+    await batch.commit();
+
+    // 3. Write child user record in users/{uid} (after the batch succeeds).
     final childUser = UserModel(
       uid: deviceUid,
       name: childName,
       email: null,
+      photoUrl: null,
       role: AppConstants.roleChild,
       familyId: familyId,
       createdAt: now,
@@ -215,6 +245,23 @@ class FamilyRepository {
         .collection(AppConstants.colUsers)
         .doc(deviceUid)
         .set(childUser.toMap(), SetOptions(merge: true));
+  }
+
+  /// Reads the child's name from the child document AFTER linking succeeds.
+  /// The rules allow this read once deviceUid == request.auth.uid.
+  Future<String?> getChildName(String familyId, String childId) async {
+    final childDoc = await _firestore
+        .collection(AppConstants.colFamilies)
+        .doc(familyId)
+        .collection(AppConstants.colChildren)
+        .doc(childId)
+        .get();
+
+    if (!childDoc.exists || childDoc.data() == null) {
+      return null;
+    }
+
+    return childDoc.data()!['name'] as String?;
   }
 
   /// Updates the lastSeen timestamp when child device checks in.

@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/family_provider.dart';
@@ -205,7 +206,13 @@ class ChildDetailScreen extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+
+        // fl_chart Category Breakdown Chart
+        if (apps.isNotEmpty && totalMs > 0) ...[
+          _buildCategoryChart(context, apps, totalMs),
+          const SizedBox(height: 24),
+        ],
 
         // Apps List Header
         Row(
@@ -269,6 +276,97 @@ class ChildDetailScreen extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildCategoryChart(
+      BuildContext context, List<AppUsageModel> apps, int totalMs) {
+    final theme = Theme.of(context);
+
+    // Group milliseconds by category
+    final Map<String, int> categoryTotals = {};
+    for (final app in apps) {
+      categoryTotals[app.category] =
+          (categoryTotals[app.category] ?? 0) + app.ms;
+    }
+
+    // Filter categories with positive usage and sort descending
+    final sortedCategories = categoryTotals.entries.where((e) => e.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final sections = sortedCategories.map((entry) {
+      final percentage = (entry.value / totalMs) * 100;
+      final color = CategoryMapper.categoryColor(entry.key);
+      return PieChartSectionData(
+        color: color,
+        value: entry.value.toDouble(),
+        title: percentage >= 10 ? '${percentage.toStringAsFixed(0)}%' : '',
+        radius: 46,
+        titleStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      );
+    }).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Category Distribution',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 180,
+              child: PieChart(
+                PieChartData(
+                  sections: sections,
+                  centerSpaceRadius: 38,
+                  sectionsSpace: 3,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 16,
+              runSpacing: 10,
+              children: sortedCategories.map((entry) {
+                final color = CategoryMapper.categoryColor(entry.key);
+                final displayName = CategoryMapper.categoryDisplayName(entry.key);
+                final duration = AppDateUtils.formatDurationMs(entry.value);
+
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$displayName: $duration',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -7,7 +7,7 @@ void main() {
       (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: FamilyTimeApp(isFirebaseReady: false),
+        child: OrbitFamilyApp(isFirebaseReady: false),
       ),
     );
 

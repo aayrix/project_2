@@ -283,10 +283,10 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildStepItem('1', 'Install & open FamilyTime on child\'s phone'),
+        _buildStepItem('1', 'Install & open Orbit Family on child\'s phone'),
         _buildStepItem('2', 'Tap "This is my Child\'s Device"'),
         _buildStepItem('3', 'Enter the 6-digit code: $code'),
-        _buildStepItem('4', 'Grant the "Usage Access" permission'),
+        _buildStepItem('4', 'Grant Usage Access & notification permissions'),
 
         const SizedBox(height: 32),
         FilledButton(

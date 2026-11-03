@@ -82,7 +82,7 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FamilyTime Child'),
+        title: const Text('Orbit Family Child'),
         automaticallyImplyLeading: false,
         actions: [
           PopupMenuButton<String>(
@@ -201,7 +201,7 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'FamilyTime cannot track app usage without the Usage Access permission.',
+                          'Orbit Family cannot track app usage without the Usage Access permission.',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.amber.shade900,

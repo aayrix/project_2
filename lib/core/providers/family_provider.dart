@@ -90,12 +90,14 @@ class FamilyController extends AsyncNotifier<ChildModel?> {
   Future<String?> regenerateLinkCode({
     required String familyId,
     required String childId,
+    String? oldCode,
   }) async {
     try {
       final familyRepo = ref.read(familyRepositoryProvider);
       return await familyRepo.regenerateLinkCode(
         familyId: familyId,
         childId: childId,
+        oldCode: oldCode,
       );
     } catch (e) {
       return null;

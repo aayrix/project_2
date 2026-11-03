@@ -11,8 +11,8 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <!-- Android 14+ (API 34+) requires explicit type permission for data sync services -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <!-- specialUse foreground service permission (no 6-hour cap on Android 15+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <application
         android:label="Orbit Family"
@@ -37,13 +37,20 @@
             </intent-filter>
         </activity>
 
-        <!-- Persistent background monitoring service for child devices -->
-        <!-- Android 14+ requires foregroundServiceType="dataSync" for cloud syncing -->
+        <!-- Persistent background monitoring service for child devices.
+             On Android 15+, dataSync foreground services are capped at 6 hours per 24 hours,
+             so we use specialUse instead (device-management type) which has no such cap,
+             keeping the persistent "Monitoring is ON" notification visible all day. -->
         <service
             android:name=".usage.MonitoringForegroundService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="specialUse">
+            <!-- Honest subtype description shown to the user in system settings. -->
+            <property
+                android:name="android.service.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Parental-control screen-time monitoring that the user is told about." />
+        </service>
 
         <!-- Restarts background monitoring upon device reboot -->
         <receiver

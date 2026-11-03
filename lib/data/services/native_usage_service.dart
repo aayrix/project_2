@@ -28,6 +28,26 @@ class NativeUsageService {
     }
   }
 
+  /// Checks if the POST_NOTIFICATIONS permission is granted (Android 13+).
+  Future<bool> hasNotificationPermission() async {
+    try {
+      final bool? hasPermission =
+          await _channel.invokeMethod<bool>('hasNotificationPermission');
+      return hasPermission ?? true;
+    } on PlatformException catch (_) {
+      return true;
+    }
+  }
+
+  /// Requests the POST_NOTIFICATIONS permission dialog on Android 13+.
+  Future<void> requestNotificationPermission() async {
+    try {
+      await _channel.invokeMethod('requestNotificationPermission');
+    } on PlatformException catch (e) {
+      debugPrint('Failed to request notification permission: ${e.message}');
+    }
+  }
+
   /// Queries native UsageStatsManager for today's foreground app usage (midnight to now).
   Future<Map<String, AppUsageModel>> getTodayUsage() async {
     try {

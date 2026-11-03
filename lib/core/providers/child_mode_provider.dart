@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -105,91 +106,125 @@ class ChildModeNotifier extends Notifier<ChildDeviceState> {
   }
 
   /// Validates the 6-digit code, signs in anonymously, and links this device to the child profile.
+  /// Order:
+  ///   1. Sign in anonymously FIRST (required before any Firestore read/write).
+  ///   2. Read linkCodes/{code} (get only).
+  ///   3. Do NOT read the child document before linking.
+  ///   4. ONE atomic batch: update child doc + delete linkCodes/{code}.
+  ///   5. Write users/{deviceUid} (done inside linkChildDevice after the batch).
   Future<bool> linkWithCode(String code) async {
     state = state.copyWith(isSyncing: true, errorMessage: null);
 
     try {
-      final familyRepo = ref.read(familyRepositoryProvider);
       final authRepo = ref.read(authRepositoryProvider);
+      final familyRepo = ref.read(familyRepositoryProvider);
       final nativeService = ref.read(nativeUsageServiceProvider);
 
-      // 1. Find child profile by linkCode
-      final result = await familyRepo.findChildByLinkCode(code.trim());
-      if (result == null) {
+      // 1a. Sign in anonymously FIRST.
+      String deviceUid;
+      try {
+        final signedInUser = await authRepo.signInChildDevice();
+        deviceUid = signedInUser.uid;
+      } catch (_) {
         state = state.copyWith(
           isSyncing: false,
-          errorMessage: 'Invalid code. Please verify the code with your parent.',
+          errorMessage:
+              'Unable to sign in. Please check your internet connection and try again.',
         );
         return false;
       }
 
-      final child = result.child;
-      final familyId = result.familyId;
-
-      // 2. Check if expired
-      if (child.isCodeExpired) {
+      // 1b. Read linkCodes/{code} (get only).
+      final trimmedCode = code.trim();
+      final codeData = await familyRepo.getLinkCodeData(trimmedCode);
+      if (codeData == null) {
         state = state.copyWith(
           isSyncing: false,
-          errorMessage: 'This code has expired. Ask your parent to generate a new one.',
+          errorMessage: 'Invalid or expired code.',
         );
         return false;
       }
 
-      // 3. Check if already linked to another device
-      if (child.isLinked) {
+      final familyId = codeData['familyId'] as String?;
+      final childId = codeData['childId'] as String?;
+      final expiresAt = codeData['expiresAt'];
+
+      if (familyId == null || childId == null || expiresAt == null) {
         state = state.copyWith(
           isSyncing: false,
-          errorMessage: 'This child profile is already linked to another device.',
+          errorMessage: 'Invalid or expired code.',
         );
         return false;
       }
 
-      // 4. Anonymous sign in
-      final childUser = await authRepo.signInChildDevice();
+      // Check expiry (rules also enforce server-side).
+      if (expiresAt is Timestamp && DateTime.now().isAfter(expiresAt.toDate())) {
+        state = state.copyWith(
+          isSyncing: false,
+          errorMessage: 'Invalid or expired code.',
+        );
+        return false;
+      }
 
-      // 5. Get device model name
+      // Get device model name.
       final deviceName = await nativeService.getDeviceModelName();
 
-      // 6. Link device in Firestore
+      // 1d. ONE atomic batch: update child doc + delete linkCodes/{code}.
       await familyRepo.linkChildDevice(
         familyId: familyId,
-        childId: child.id,
-        childName: child.name,
-        deviceUid: childUser.uid,
+        childId: childId,
+        childName: '', // filled after reading child doc post-link
+        linkCode: trimmedCode,
+        deviceUid: deviceUid,
         deviceName: deviceName,
       );
 
-      // 7. Persist child link info in SharedPreferences
+      // Read child name AFTER linking (rules allow read when deviceUid == request.auth.uid).
+      String? childName;
+      try {
+        childName = await familyRepo.getChildName(familyId, childId);
+      } catch (_) {
+        childName = null;
+      }
+
+      // Persist child link info in SharedPreferences.
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AppConstants.prefUserRole, AppConstants.roleChild);
       await prefs.setString(AppConstants.prefFamilyId, familyId);
-      await prefs.setString(AppConstants.prefChildId, child.id);
-      await prefs.setString(AppConstants.prefChildName, child.name);
+      await prefs.setString(AppConstants.prefChildId, childId);
+      await prefs.setString(AppConstants.prefChildName, childName ?? '');
 
-      // 8. Start native monitoring notification & service
+      // Start native monitoring notification & service.
       await nativeService.startMonitoringService(
-        childName: child.name,
+        childName: childName ?? 'Child',
         familyId: familyId,
-        childId: child.id,
+        childId: childId,
       );
 
       state = state.copyWith(
         isLinked: true,
         familyId: familyId,
-        childId: child.id,
-        childName: child.name,
+        childId: childId,
+        childName: childName,
         isSyncing: false,
         errorMessage: null,
       );
 
-      // 9. Initial sync
+      // Initial sync.
       await syncUsageNow();
       return true;
+    } on FirebaseException catch (e) {
+      debugPrint('Firebase error linking device: $e');
+      state = state.copyWith(
+        isSyncing: false,
+        errorMessage: 'Invalid or expired code.',
+      );
+      return false;
     } catch (e) {
       debugPrint('Error linking device: $e');
       state = state.copyWith(
         isSyncing: false,
-        errorMessage: 'Failed to link device: ${e.toString()}',
+        errorMessage: 'Failed to link device. Please try again.',
       );
       return false;
     }

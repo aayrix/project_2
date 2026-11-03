@@ -2,7 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -18,44 +17,49 @@ service cloud.firestore {
 
     function isLinkedChild(familyId, childId) {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/families/$(familyId)/children/$(childId)).data.deviceUid == request.auth.uid;
+        get(/databases/$(database)/documents/families/$(familyId)/children/$(childId)).data.get('deviceUid', null) == request.auth.uid;
     }
 
-    // Users Collection
     match /users/{userId} {
       allow read, write: if isUser(userId);
     }
 
-    // Families Collection
+    match /linkCodes/{code} {
+      allow create: if isAuthenticated() && isFamilyParent(request.resource.data.familyId);
+      allow get: if isAuthenticated() && resource.data.expiresAt > request.time;
+      allow list: if false;
+      allow update: if false;
+      allow delete: if isAuthenticated() && (
+        isFamilyParent(resource.data.familyId) ||
+        getAfter(/databases/$(database)/documents/families/$(resource.data.familyId)/children/$(resource.data.childId)).data.get('deviceUid', null) == request.auth.uid
+      );
+    }
+
     match /families/{familyId} {
       allow create: if isAuthenticated() && request.resource.data.parentUid == request.auth.uid;
       allow read, update, delete: if isAuthenticated() && resource.data.parentUid == request.auth.uid;
 
-      // Children Subcollection
       match /children/{childId} {
-        // Parent can read/write everything in their family
         allow read, write: if isFamilyParent(familyId);
+        allow read: if isAuthenticated() && resource.data.get('deviceUid', null) == request.auth.uid;
 
-        // Child device needs to find child document by linkCode (or read its own profile)
-        allow read: if isAuthenticated();
-
-        // Child device can update deviceUid/deviceName when linking, and lastSeen periodically
         allow update: if isAuthenticated() && (
-          // Case 1: Linking device for the first time
-          (resource.data.deviceUid == null && request.resource.data.deviceUid == request.auth.uid) ||
-          // Case 2: Already linked device updating lastSeen
-          (resource.data.deviceUid == request.auth.uid)
+          // linked device: heartbeat fields only
+          (resource.data.get('deviceUid', null) == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen', 'deviceName']))
+          ||
+          // first-time linking: needs a valid, unexpired link code
+          (resource.data.get('deviceUid', null) == null &&
+            request.resource.data.deviceUid == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deviceUid', 'deviceName', 'linkedAt', 'lastSeen']) &&
+            get(/databases/$(database)/documents/linkCodes/$(resource.data.linkCode)).data.expiresAt > request.time)
         );
 
-        // UsageDays Subcollection
         match /usageDays/{dateKey} {
-          // Parent can read usage stats
           allow read: if isFamilyParent(familyId);
-          // Linked child device can create/update today's usage stats
           allow write: if isLinkedChild(familyId, childId);
         }
 
-        // Rules Subcollection (for Phase 2)
         match /rules/{ruleId} {
           allow read, write: if isFamilyParent(familyId);
           allow read: if isLinkedChild(familyId, childId);

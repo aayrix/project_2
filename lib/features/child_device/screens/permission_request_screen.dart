@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/child_mode_provider.dart';
+import '../../../core/providers/repository_providers.dart';
 import 'child_monitoring_screen.dart';
 
 class PermissionRequestScreen extends ConsumerStatefulWidget {
@@ -19,7 +20,8 @@ class _PermissionRequestScreenState
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // Check initial permission status
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(nativeUsageServiceProvider).requestNotificationPermission();
       ref.read(childModeProvider.notifier).checkPermission();
     });
   }
@@ -129,7 +131,7 @@ class _PermissionRequestScreenState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'FamilyTime ONLY measures how long apps are opened. It NEVER reads chats, private messages, searches, photos, or passwords.',
+                            'Orbit Family ONLY measures how long apps are opened. It NEVER reads chats, private messages, searches, photos, or passwords.',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: Colors.green.shade800,
                             ),
@@ -156,7 +158,7 @@ class _PermissionRequestScreenState
               ),
               _buildStepRow(
                 '2',
-                'Find "FamilyTime" in the list of apps.',
+                'Find "Orbit Family" in the list of apps.',
               ),
               _buildStepRow(
                 '3',
