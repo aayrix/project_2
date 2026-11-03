@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/child_model.dart';
+import '../../data/models/rule_model.dart';
 import '../../data/models/usage_day_model.dart';
 import 'auth_provider.dart';
 import 'repository_providers.dart';
@@ -49,6 +50,17 @@ final childTodayUsageStreamProvider =
         (ref, arg) {
   final usageRepo = ref.watch(usageRepositoryProvider);
   return usageRepo.streamTodayUsage(
+    familyId: arg.familyId,
+    childId: arg.childId,
+  );
+});
+
+/// Streams the rules/main document for a specific child.
+final childRulesStreamProvider =
+    StreamProvider.family<RuleModel?, ({String familyId, String childId})>(
+        (ref, arg) {
+  final usageRepo = ref.watch(usageRepositoryProvider);
+  return usageRepo.streamRules(
     familyId: arg.familyId,
     childId: arg.childId,
   );

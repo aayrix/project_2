@@ -2,10 +2,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/family_provider.dart';
+import '../../../core/providers/repository_providers.dart';
 import '../../../core/utils/category_mapper.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../data/models/app_usage_model.dart';
 import '../../../data/models/child_model.dart';
+import '../../../data/models/rule_model.dart';
 import '../../../data/models/usage_day_model.dart';
 
 class ChildDetailScreen extends ConsumerWidget {
@@ -64,6 +66,13 @@ class ChildDetailScreen extends ConsumerWidget {
                   data: (usage) {
                     return _buildUsageContent(context, usage);
                   },
+                ),
+                const SizedBox(height: 20),
+
+                // Limits Section
+                LimitsSection(
+                  familyId: familyId,
+                  childId: childId,
                 ),
               ],
             ),
@@ -455,5 +464,291 @@ class ChildDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Limits section for the child detail screen.
+/// Allows the parent to set daily total limit, per-app limits, and blocks.
+class LimitsSection extends ConsumerStatefulWidget {
+  final String familyId;
+  final String childId;
+
+  const LimitsSection({
+    super.key,
+    required this.familyId,
+    required this.childId,
+  });
+
+  @override
+  ConsumerState<LimitsSection> createState() => _LimitsSectionState();
+}
+
+class _LimitsSectionState extends ConsumerState<LimitsSection> {
+  final _dailyLimitController = TextEditingController();
+  final Map<String, TextEditingController> _appLimitControllers = {};
+  final Set<String> _blockedApps = {};
+  bool _allBlocked = false;
+  bool _isSaving = false;
+  bool _initialized = false;
+
+  @override
+  void dispose() {
+    _dailyLimitController.dispose();
+    for (final controller in _appLimitControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _initializeControllers(RuleModel? rules, List<AppUsageModel> apps) {
+    if (rules != null) {
+      if (rules.dailyLimitMs != null && rules.dailyLimitMs! > 0) {
+        _dailyLimitController.text = rules.dailyLimitMs.toString();
+      }
+      _blockedApps.addAll(rules.blockedApps.keys);
+      _allBlocked = rules.allBlockedUntil != null;
+    }
+
+    for (final app in apps) {
+      if (!_appLimitControllers.containsKey(app.packageName)) {
+        final controller = TextEditingController();
+        final limit = rules?.appLimits[app.packageName];
+        if (limit != null && limit > 0) {
+          controller.text = limit.toString();
+        }
+        _appLimitControllers[app.packageName] = controller;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final rulesAsync = ref.watch(childRulesStreamProvider(
+      (familyId: widget.familyId, childId: widget.childId),
+    ));
+    final usageAsync = ref.watch(childTodayUsageStreamProvider(
+      (familyId: widget.familyId, childId: widget.childId),
+    ));
+
+    return rulesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => const Text('Error loading rules.'),
+      data: (rules) {
+        final apps = usageAsync.value?.sortedApps ?? [];
+        if (!_initialized) {
+          _initializeControllers(rules, apps);
+          _initialized = true;
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Screen Time Limits',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Daily total limit
+                TextFormField(
+                  controller: _dailyLimitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Daily total limit (ms)',
+                    hintText: 'e.g. 7200000 for 2 hours',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Block phone for today
+                Row(
+                  children: [
+                    Switch(
+                      value: _allBlocked,
+                      onChanged: (val) => setState(() => _allBlocked = val),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _allBlocked
+                            ? 'Block phone for today (except essential apps)'
+                            : 'Block entire phone for today',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Per-app limits
+                if (apps.isEmpty)
+                  const Text(
+                    'No app usage data yet. Limits will apply once apps are tracked.',
+                  )
+                else ...[
+                  Text(
+                    'Per-App Limits',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final app in apps)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  app.appName,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  app.packageName,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 1,
+                            child: TextFormField(
+                              controller: _appLimitControllers[app.packageName],
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Limit (ms)',
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Checkbox(
+                            value: _blockedApps.contains(app.packageName),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _blockedApps.add(app.packageName);
+                                } else {
+                                  _blockedApps.remove(app.packageName);
+                                }
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 20),
+
+                // Save button
+                FilledButton(
+                  onPressed: _isSaving ? null : _saveRules,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Save Limits'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _saveRules() async {
+    final usageRepo = ref.read(usageRepositoryProvider);
+
+    final dailyLimitText = _dailyLimitController.text.trim();
+    final dailyLimitMs =
+        dailyLimitText.isEmpty ? null : int.tryParse(dailyLimitText);
+
+    final appLimits = <String, int>{};
+    _appLimitControllers.forEach((pkg, controller) {
+      final val = int.tryParse(controller.text.trim());
+      if (val != null && val > 0) {
+        appLimits[pkg] = val;
+      }
+    });
+
+    final now = DateTime.now();
+    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+    final blockedApps = <String, DateTime>{};
+    for (final pkg in _blockedApps) {
+      blockedApps[pkg] = endOfToday;
+    }
+
+    final allBlockedUntil = _allBlocked ? endOfToday : null;
+
+    final rules = RuleModel(
+      dailyLimitMs: dailyLimitMs,
+      appLimits: appLimits,
+      blockedApps: blockedApps,
+      allBlockedUntil: allBlockedUntil,
+    );
+
+    setState(() => _isSaving = true);
+
+    try {
+      await usageRepo.saveRules(
+        familyId: widget.familyId,
+        childId: widget.childId,
+        rules: rules,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Limits saved successfully.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save limits: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 }

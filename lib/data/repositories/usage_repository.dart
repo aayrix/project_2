@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/date_utils.dart';
 import '../models/app_usage_model.dart';
+import '../models/rule_model.dart';
 import '../models/usage_day_model.dart';
 
 class UsageRepository {
@@ -85,5 +86,40 @@ class UsageRepository {
 
     if (!doc.exists || doc.data() == null) return null;
     return UsageDayModel.fromMap(doc.data()!, doc.id);
+  }
+
+  /// Streams the rules/main document for a child.
+  Stream<RuleModel?> streamRules({
+    required String familyId,
+    required String childId,
+  }) {
+    return _firestore
+        .collection(AppConstants.colFamilies)
+        .doc(familyId)
+        .collection(AppConstants.colChildren)
+        .doc(childId)
+        .collection(AppConstants.colRules)
+        .doc(AppConstants.docMainRule)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return RuleModel.fromMap(doc.data()!);
+    });
+  }
+
+  /// Saves (merges) the rules/main document for a child.
+  Future<void> saveRules({
+    required String familyId,
+    required String childId,
+    required RuleModel rules,
+  }) async {
+    await _firestore
+        .collection(AppConstants.colFamilies)
+        .doc(familyId)
+        .collection(AppConstants.colChildren)
+        .doc(childId)
+        .collection(AppConstants.colRules)
+        .doc(AppConstants.docMainRule)
+        .set(rules.toMap(), SetOptions(merge: true));
   }
 }
