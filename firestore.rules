@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isFamilyParent(familyId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/families/$(familyId)).data.parentUid == request.auth.uid;
+    }
+
+    function isLinkedChild(familyId, childId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/families/$(familyId)/children/$(childId)).data.deviceUid == request.auth.uid;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read, write: if isUser(userId);
+    }
+
+    // Families Collection
+    match /families/{familyId} {
+      allow create: if isAuthenticated() && request.resource.data.parentUid == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() && resource.data.parentUid == request.auth.uid;
+
+      // Children Subcollection
+      match /children/{childId} {
+        // Parent can read/write everything in their family
+        allow read, write: if isFamilyParent(familyId);
+
+        // Child device needs to find child document by linkCode (or read its own profile)
+        allow read: if isAuthenticated();
+
+        // Child device can update deviceUid/deviceName when linking, and lastSeen periodically
+        allow update: if isAuthenticated() && (
+          // Case 1: Linking device for the first time
+          (resource.data.deviceUid == null && request.resource.data.deviceUid == request.auth.uid) ||
+          // Case 2: Already linked device updating lastSeen
+          (resource.data.deviceUid == request.auth.uid)
+        );
+
+        // UsageDays Subcollection
+        match /usageDays/{dateKey} {
+          // Parent can read usage stats
+          allow read: if isFamilyParent(familyId);
+          // Linked child device can create/update today's usage stats
+          allow write: if isLinkedChild(familyId, childId);
+        }
+
+        // Rules Subcollection (for Phase 2)
+        match /rules/{ruleId} {
+          allow read, write: if isFamilyParent(familyId);
+          allow read: if isLinkedChild(familyId, childId);
+        }
+      }
+    }
+  }
+}
