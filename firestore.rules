@@ -46,7 +46,7 @@ service cloud.firestore {
         allow update: if isAuthenticated() && (
           // linked device: heartbeat fields only
           (resource.data.get('deviceUid', null) == request.auth.uid &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen', 'deviceName']))
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen', 'deviceName', 'monitoringDisabled', 'monitoringDisabledAt']))
           ||
           // first-time linking: needs a valid, unexpired link code
           (resource.data.get('deviceUid', null) == null &&

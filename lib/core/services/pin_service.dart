@@ -1,38 +1,92 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// Parent PIN service: salt + SHA-256 hashing, local + Firestore sync.
+/// Parent PIN service: local-only storage with EncryptedSharedPreferences
+/// (Android Keystore backed), PBKDF2 hashing, and lockout protection.
 ///
-/// The PIN is never stored in plain text. The hash and salt are stored in
-/// SharedPreferences on the child device and synced to Firestore via
-/// rules/main (parentPinHash, parentPinSalt).
+/// The PIN is NEVER stored in plain text and NEVER sent to Firestore.
+/// All data is stored locally on the child device only.
 class PinService {
   static const String _prefPinHash = 'orbit_parent_pin_hash';
   static const String _prefPinSalt = 'orbit_parent_pin_salt';
+  static const String _prefFailedAttempts = 'orbit_parent_pin_failed_attempts';
+  static const String _prefLockoutUntil = 'orbit_parent_pin_lockout_until';
 
-  final SharedPreferences _prefs;
+  /// PBKDF2 iteration count (high for resistance to brute-force on short PINs).
+  static const int _pbkdf2Iterations = 100000;
+
+  /// Maximum failed attempts before lockout.
+  static const int _maxFailedAttempts = 5;
+
+  /// Base lockout duration: 5 minutes.
+  static const Duration _baseLockout = Duration(minutes: 5);
+
+  final EncryptedSharedPreferences _prefs;
 
   PinService(this._prefs);
 
-  /// Generates a random 16-character base64url salt.
+  /// Generates a random 16-byte salt.
   String _generateSalt() {
     final random = Random.secure();
     final values = List<int>.generate(16, (i) => random.nextInt(256));
     return base64Url.encode(values);
   }
 
-  /// Hashes a PIN with a salt using SHA-256.
-  String _hashPin(String pin, String salt) {
-    final input = '$pin:$salt';
-    final bytes = utf8.encode(input);
-    final digest = _sha256(bytes);
-    return digest.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  /// PBKDF2-HMAC-SHA256 key derivation.
+  /// Returns the derived key as a hex string.
+  String _pbkdf2(String password, String salt, int iterations) {
+    final passwordBytes = utf8.encode(password);
+    final saltBytes = base64Url.decode(salt);
+    final dkLen = 32; // 256-bit key
+
+    // PBKDF2: U1 = HMAC(password, salt || INT_32_BE(1))
+    //       U2 = HMAC(password, U1), ...
+    //       DK = U1 ^ U2 ^ ... ^ Uc
+    final List<int> dk = List.filled(dkLen, 0);
+    final List<int> u = List.filled(dkLen, 0);
+
+    // First iteration: HMAC(password, salt || 0x00000001)
+    final saltWithCounter = [...saltBytes, 0, 0, 0, 1];
+    final u1 = _hmacSha256(passwordBytes, saltWithCounter);
+    for (var i = 0; i < dkLen; i++) {
+      u[i] = u1[i];
+      dk[i] = u1[i];
+    }
+
+    // Remaining iterations
+    for (var c = 2; c <= iterations; c++) {
+      final nextU = _hmacSha256(passwordBytes, u);
+      for (var i = 0; i < dkLen; i++) {
+        u[i] = nextU[i];
+        dk[i] = dk[i] ^ u[i];
+      }
+    }
+
+    return dk.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
-  /// SHA-256 implementation (pure Dart, no external packages).
+  /// HMAC-SHA256.
+  List<int> _hmacSha256(List<int> key, List<int> data) {
+    final blockSize = 64;
+    var k = key;
+    if (k.length > blockSize) {
+      k = _sha256(k);
+    }
+    if (k.length < blockSize) {
+      k = [...k, ...List.filled(blockSize - k.length, 0)];
+    }
+    final opad = List<int>.generate(blockSize, (i) => k[i] ^ 0x5C);
+    final ipad = List<int>.generate(blockSize, (i) => k[i] ^ 0x36);
+    final inner = [...ipad, ...data];
+    final innerHash = _sha256(inner);
+    final outer = [...opad, ...innerHash];
+    return _sha256(outer);
+  }
+
+  /// SHA-256 hash.
   List<int> _sha256(List<int> data) {
     // Initial hash values
     var h0 = 0x6a09e667;
@@ -140,52 +194,113 @@ class PinService {
   }
 
   /// Returns true if a PIN has been set on this device.
-  bool get hasPin {
-    final hash = _prefs.getString(_prefPinHash);
-    return hash != null && hash.isNotEmpty;
+  Future<bool> get hasPin async {
+    final hash = await _prefs.getString(_prefPinHash);
+    return hash.isNotEmpty;
   }
 
-  /// Sets the parent PIN. Generates a new salt, hashes the PIN, and stores
-  /// both locally. Returns the hash and salt so the caller can sync to Firestore.
-  Map<String, String> setPin(String pin) {
+  /// Returns true if the PIN is currently locked out.
+  Future<bool> get isLockedOut async {
+    final lockoutUntilStr = await _prefs.getString(_prefLockoutUntil);
+    if (lockoutUntilStr.isEmpty) return false;
+    final lockoutUntil = int.tryParse(lockoutUntilStr) ?? 0;
+    return DateTime.now().millisecondsSinceEpoch < lockoutUntil;
+  }
+
+  /// Returns the remaining lockout duration, or null if not locked out.
+  Future<Duration?> get lockoutRemaining async {
+    if (!(await isLockedOut)) return null;
+    final lockoutUntilStr = await _prefs.getString(_prefLockoutUntil);
+    final lockoutUntil = int.tryParse(lockoutUntilStr) ?? 0;
+    final remaining = lockoutUntil - DateTime.now().millisecondsSinceEpoch;
+    return remaining > 0 ? Duration(milliseconds: remaining) : Duration.zero;
+  }
+
+  /// Returns the number of failed attempts.
+  Future<int> get failedAttempts async {
+    final attemptsStr = await _prefs.getString(_prefFailedAttempts);
+    return attemptsStr.isNotEmpty
+        ? int.tryParse(attemptsStr) ?? 0
+        : 0;
+  }
+
+  /// Sets the parent PIN. Generates a new salt, derives a PBKDF2 hash, and
+  /// stores both locally using EncryptedSharedPreferences.
+  Future<void> setPin(String pin) async {
     if (pin.length < 4) {
       throw ArgumentError('PIN must be at least 4 digits.');
     }
+    if (!RegExp(r'^\d+$').hasMatch(pin)) {
+      throw ArgumentError('PIN must contain only digits.');
+    }
+
     final salt = _generateSalt();
-    final hash = _hashPin(pin, salt);
+    final hash = _pbkdf2(pin, salt, _pbkdf2Iterations);
 
-    _prefs.setString(_prefPinHash, hash);
-    _prefs.setString(_prefPinSalt, salt);
+    await _prefs.setString(_prefPinHash, hash);
+    await _prefs.setString(_prefPinSalt, salt);
+    await _prefs.setString(_prefFailedAttempts, '0');
+    await _prefs.remove(_prefLockoutUntil);
 
-    debugPrint('PinService: PIN set locally');
-
-    return {'hash': hash, 'salt': salt};
+    debugPrint('PinService: PIN set locally (EncryptedSharedPreferences)');
   }
 
-  /// Verifies an entered PIN against the stored hash and salt.
-  bool verifyPin(String pin) {
-    final hash = _prefs.getString(_prefPinHash);
-    final salt = _prefs.getString(_prefPinSalt);
-    if (hash == null || salt == null || hash.isEmpty || salt.isEmpty) {
+  /// Verifies an entered PIN against the stored PBKDF2 hash and salt.
+  /// Returns true if correct. Records failed attempts and applies lockout.
+  Future<bool> verifyPin(String pin) async {
+    // Check lockout
+    if (await isLockedOut) {
+      final remaining = await lockoutRemaining;
+      debugPrint(
+          'PinService: PIN verification blocked, lockout remaining: $remaining');
       return false;
     }
-    return _hashPin(pin, salt) == hash;
+
+    final hash = await _prefs.getString(_prefPinHash);
+    final salt = await _prefs.getString(_prefPinSalt);
+
+    if (hash.isEmpty || salt.isEmpty) {
+      return false;
+    }
+
+    final inputHash = _pbkdf2(pin, salt, _pbkdf2Iterations);
+
+    if (inputHash == hash) {
+      // Correct PIN: reset failed attempts
+      await _prefs.setString(_prefFailedAttempts, '0');
+      debugPrint('PinService: PIN verified successfully');
+      return true;
+    } else {
+      // Wrong PIN: increment failed attempts
+      final currentAttempts = await failedAttempts;
+      final newAttempts = currentAttempts + 1;
+      await _prefs.setString(_prefFailedAttempts, newAttempts.toString());
+
+      if (newAttempts >= _maxFailedAttempts) {
+        // Apply lockout with increasing duration
+        final lockoutMinutes = _baseLockout.inMinutes *
+            ((newAttempts ~/ _maxFailedAttempts) + 1);
+        final lockoutUntilMs =
+            DateTime.now().millisecondsSinceEpoch +
+                Duration(minutes: lockoutMinutes).inMilliseconds;
+        await _prefs.setString(_prefLockoutUntil, lockoutUntilMs.toString());
+        debugPrint(
+            'PinService: Max failed attempts reached, lockout for $lockoutMinutes minutes');
+      } else {
+        debugPrint(
+            'PinService: Incorrect PIN, $newAttempts/$_maxFailedAttempts failed attempts');
+      }
+
+      return false;
+    }
   }
 
-  /// Clears the stored PIN (e.g. on unlink).
+  /// Clears all PIN data (e.g. on unlink or PIN reset).
   Future<void> clearPin() async {
     await _prefs.remove(_prefPinHash);
     await _prefs.remove(_prefPinSalt);
+    await _prefs.remove(_prefFailedAttempts);
+    await _prefs.remove(_prefLockoutUntil);
     debugPrint('PinService: PIN cleared locally');
-  }
-
-  /// Loads the stored hash and salt, or null if no PIN is set.
-  Map<String, String>? loadPin() {
-    final hash = _prefs.getString(_prefPinHash);
-    final salt = _prefs.getString(_prefPinSalt);
-    if (hash == null || salt == null || hash.isEmpty || salt.isEmpty) {
-      return null;
-    }
-    return {'hash': hash, 'salt': salt};
   }
 }

@@ -1,13 +1,11 @@
+import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/providers/repository_providers.dart';
 import '../../../core/services/pin_service.dart';
-import '../../../core/services/rule_cache_service.dart';
-import '../../../data/models/rule_model.dart';
 
 /// Screen where the parent sets a PIN for child-mode unlock.
-/// The PIN is hashed with a salt (never plain text) and saved to rules/main.
+/// The PIN is stored only locally on this device using EncryptedSharedPreferences
+/// (Android Keystore backed). It is never sent to Firestore.
 class ParentPinSetupScreen extends ConsumerStatefulWidget {
   final String familyId;
   final String childId;
@@ -28,6 +26,17 @@ class _ParentPinSetupScreenState extends ConsumerState<ParentPinSetupScreen> {
   final _confirmController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isSaving = false;
+  EncryptedSharedPreferences? _prefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPrefs();
+  }
+
+  Future<void> _initPrefs() async {
+    _prefs = EncryptedSharedPreferences();
+  }
 
   @override
   void dispose() {
@@ -40,34 +49,24 @@ class _ParentPinSetupScreenState extends ConsumerState<ParentPinSetupScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final pin = _pinController.text.trim();
-    final usageRepo = ref.read(usageRepositoryProvider);
+    if (_prefs == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Secure storage not available.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
-    // Hash PIN locally
-    final prefs = await SharedPreferences.getInstance();
-    final pinService = PinService(prefs);
-    final result = pinService.setPin(pin);
-
-    // Save hash + salt to rules/main
-    final rules = RuleModel(
-      parentPinHash: result['hash'],
-      parentPinSalt: result['salt'],
-    );
+    final pinService = PinService(_prefs!);
 
     setState(() => _isSaving = true);
 
     try {
-      await usageRepo.saveRules(
-        familyId: widget.familyId,
-        childId: widget.childId,
-        rules: rules,
-      );
-
-      // Cache locally too
-      await RuleCacheService.saveRules(
-        familyId: widget.familyId,
-        childId: widget.childId,
-        rules: rules,
-      );
+      await pinService.setPin(pin);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -133,7 +132,7 @@ class _ParentPinSetupScreenState extends ConsumerState<ParentPinSetupScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'This PIN unlocks extra time on your child\'s device and '
-                  'protects leaving child mode.',
+                  'protects leaving child mode. Stored locally only.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
@@ -156,6 +155,9 @@ class _ParentPinSetupScreenState extends ConsumerState<ParentPinSetupScreen> {
                     }
                     if (val.trim().length < 4 || val.trim().length > 6) {
                       return 'PIN must be 4-6 digits';
+                    }
+                    if (!RegExp(r'^\d+$').hasMatch(val.trim())) {
+                      return 'PIN must contain only digits';
                     }
                     return null;
                   },

@@ -43,9 +43,7 @@ class RuleCacheService {
       'appLimits': rules.appLimits,
       'blockedApps': blockedApps,
       'allBlockedUntil': rules.allBlockedUntil?.toIso8601String(),
-      'parentPinHash': rules.parentPinHash,
-      'parentPinSalt': rules.parentPinSalt,
-      'parentUnlockUntil': rules.parentUnlockUntil?.toIso8601String(),
+      'extraTimeUntil': rules.extraTimeUntil?.toIso8601String(),
       'updatedAt': rules.updatedAt?.toIso8601String(),
     });
   }
@@ -80,9 +78,7 @@ class RuleCacheService {
       appLimits: appLimits,
       blockedApps: blockedApps,
       allBlockedUntil: parseNullable(map['allBlockedUntil']),
-      parentPinHash: map['parentPinHash'] as String?,
-      parentPinSalt: map['parentPinSalt'] as String?,
-      parentUnlockUntil: parseNullable(map['parentUnlockUntil']),
+      extraTimeUntil: parseNullable(map['extraTimeUntil']),
       updatedAt: parseNullable(map['updatedAt']),
     );
   }

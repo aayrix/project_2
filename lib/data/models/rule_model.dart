@@ -2,6 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Screen-time limits and blocks for a child, stored in
 /// families/{familyId}/children/{childId}/rules/main.
+///
+/// The parent writes all fields except `extraTimeUntil`, which is also
+/// parent-only (written via "Give 15 more minutes" from the parent app).
+/// The child device reads rules/main but never writes PIN-related data.
 class RuleModel {
   /// Total phone screen time allowed per day in ms, or null for unlimited.
   final int? dailyLimitMs;
@@ -17,14 +21,10 @@ class RuleModel {
   /// null means phone-wide block is off.
   final DateTime? allBlockedUntil;
 
-  /// Hashed parent PIN (SHA-256 of PIN + salt), or null if no PIN set.
-  final String? parentPinHash;
-
-  /// Salt used for PIN hashing, stored alongside the hash.
-  final String? parentPinSalt;
-
-  /// Timestamp until which parent unlock grants extra time (ms).
-  final DateTime? parentUnlockUntil;
+  /// Extra time granted by parent ("Give 15 more minutes"), stored in
+  /// rules/main by the parent app. The child reads this for offline fallback
+  /// when the local PIN unlock has expired.
+  final DateTime? extraTimeUntil;
 
   final DateTime? updatedAt;
 
@@ -33,9 +33,7 @@ class RuleModel {
     this.appLimits = const {},
     this.blockedApps = const {},
     this.allBlockedUntil,
-    this.parentPinHash,
-    this.parentPinSalt,
-    this.parentUnlockUntil,
+    this.extraTimeUntil,
     this.updatedAt,
   });
 
@@ -58,9 +56,7 @@ class RuleModel {
         return MapEntry(key, dt ?? DateTime.now());
       }) ?? {},
       allBlockedUntil: parseNullable(map['allBlockedUntil']),
-      parentPinHash: map['parentPinHash'] as String?,
-      parentPinSalt: map['parentPinSalt'] as String?,
-      parentUnlockUntil: parseNullable(map['parentUnlockUntil']),
+      extraTimeUntil: parseNullable(map['extraTimeUntil']),
       updatedAt: parseNullable(map['updatedAt']),
     );
   }
@@ -73,10 +69,8 @@ class RuleModel {
           MapEntry(key, Timestamp.fromDate(value))),
       'allBlockedUntil':
           allBlockedUntil != null ? Timestamp.fromDate(allBlockedUntil!) : null,
-      'parentPinHash': parentPinHash,
-      'parentPinSalt': parentPinSalt,
-      'parentUnlockUntil':
-          parentUnlockUntil != null ? Timestamp.fromDate(parentUnlockUntil!) : null,
+      'extraTimeUntil':
+          extraTimeUntil != null ? Timestamp.fromDate(extraTimeUntil!) : null,
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -86,18 +80,14 @@ class RuleModel {
     Map<String, int>? appLimits,
     Map<String, DateTime>? blockedApps,
     DateTime? allBlockedUntil,
-    String? parentPinHash,
-    String? parentPinSalt,
-    DateTime? parentUnlockUntil,
+    DateTime? extraTimeUntil,
   }) {
     return RuleModel(
       dailyLimitMs: dailyLimitMs ?? this.dailyLimitMs,
       appLimits: appLimits ?? this.appLimits,
       blockedApps: blockedApps ?? this.blockedApps,
       allBlockedUntil: allBlockedUntil ?? this.allBlockedUntil,
-      parentPinHash: parentPinHash ?? this.parentPinHash,
-      parentPinSalt: parentPinSalt ?? this.parentPinSalt,
-      parentUnlockUntil: parentUnlockUntil ?? this.parentUnlockUntil,
+      extraTimeUntil: extraTimeUntil ?? this.extraTimeUntil,
     );
   }
 }

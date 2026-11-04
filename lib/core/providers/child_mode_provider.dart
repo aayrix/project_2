@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -301,14 +302,15 @@ class ChildModeNotifier extends Notifier<ChildDeviceState> {
   /// Requires parent PIN verification if a PIN is set.
   Future<void> unlinkDevice({String? pin}) async {
     final prefs = await SharedPreferences.getInstance();
-    final pinService = PinService(prefs);
+    final encPrefs = EncryptedSharedPreferences();
+    final pinService = PinService(encPrefs);
 
     // If a PIN is set, require it to unlink
-    if (pinService.hasPin) {
+    if (await pinService.hasPin) {
       if (pin == null || pin.isEmpty) {
         throw Exception('Parent PIN is required to unlink this device.');
       }
-      if (!pinService.verifyPin(pin)) {
+      if (!await pinService.verifyPin(pin)) {
         throw Exception('Incorrect PIN.');
       }
     }

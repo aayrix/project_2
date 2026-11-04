@@ -259,6 +259,25 @@ class _ChildCard extends ConsumerWidget {
                     ),
                   ),
                   _buildStatusBadge(colorScheme),
+                  if (child.isLinked && _isSignalStale(child.lastSeen)) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'No signal from this phone',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const Divider(height: 28),
@@ -377,5 +396,11 @@ class _ChildCard extends ConsumerWidget {
         ),
       );
     }
+  }
+
+  /// Returns true if the child's lastSeen is older than 2 hours or null.
+  bool _isSignalStale(DateTime? lastSeen) {
+    if (lastSeen == null) return true;
+    return DateTime.now().difference(lastSeen).inHours >= 2;
   }
 }
