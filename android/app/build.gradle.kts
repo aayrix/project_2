@@ -24,8 +24,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../orbit_upload_key.jks")
+            storePassword = "orbit123"
+            keyAlias = "orbit_upload_key"
+            keyPassword = "orbit123"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
+        }
+        debug {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
