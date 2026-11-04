@@ -17,6 +17,15 @@ class RuleModel {
   /// null means phone-wide block is off.
   final DateTime? allBlockedUntil;
 
+  /// Hashed parent PIN (SHA-256 of PIN + salt), or null if no PIN set.
+  final String? parentPinHash;
+
+  /// Salt used for PIN hashing, stored alongside the hash.
+  final String? parentPinSalt;
+
+  /// Timestamp until which parent unlock grants extra time (ms).
+  final DateTime? parentUnlockUntil;
+
   final DateTime? updatedAt;
 
   RuleModel({
@@ -24,6 +33,9 @@ class RuleModel {
     this.appLimits = const {},
     this.blockedApps = const {},
     this.allBlockedUntil,
+    this.parentPinHash,
+    this.parentPinSalt,
+    this.parentUnlockUntil,
     this.updatedAt,
   });
 
@@ -46,6 +58,9 @@ class RuleModel {
         return MapEntry(key, dt ?? DateTime.now());
       }) ?? {},
       allBlockedUntil: parseNullable(map['allBlockedUntil']),
+      parentPinHash: map['parentPinHash'] as String?,
+      parentPinSalt: map['parentPinSalt'] as String?,
+      parentUnlockUntil: parseNullable(map['parentUnlockUntil']),
       updatedAt: parseNullable(map['updatedAt']),
     );
   }
@@ -58,6 +73,10 @@ class RuleModel {
           MapEntry(key, Timestamp.fromDate(value))),
       'allBlockedUntil':
           allBlockedUntil != null ? Timestamp.fromDate(allBlockedUntil!) : null,
+      'parentPinHash': parentPinHash,
+      'parentPinSalt': parentPinSalt,
+      'parentUnlockUntil':
+          parentUnlockUntil != null ? Timestamp.fromDate(parentUnlockUntil!) : null,
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -67,12 +86,18 @@ class RuleModel {
     Map<String, int>? appLimits,
     Map<String, DateTime>? blockedApps,
     DateTime? allBlockedUntil,
+    String? parentPinHash,
+    String? parentPinSalt,
+    DateTime? parentUnlockUntil,
   }) {
     return RuleModel(
       dailyLimitMs: dailyLimitMs ?? this.dailyLimitMs,
       appLimits: appLimits ?? this.appLimits,
       blockedApps: blockedApps ?? this.blockedApps,
       allBlockedUntil: allBlockedUntil ?? this.allBlockedUntil,
+      parentPinHash: parentPinHash ?? this.parentPinHash,
+      parentPinSalt: parentPinSalt ?? this.parentPinSalt,
+      parentUnlockUntil: parentUnlockUntil ?? this.parentUnlockUntil,
     );
   }
 }

@@ -5,4 +5,5 @@
     <string name="lock_message">This app is blocked by your screen-time limit.</string>
     <string name="lock_icon">Lock icon</string>
     <string name="accessibility_service_description">Orbit Family screen-time enforcement. Detects the foreground app and enforces parental limits and blocks.</string>
+    <string name="lock_parent_unlock">Parent unlock</string>
 </resources>

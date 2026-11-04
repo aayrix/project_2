@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/pin_service.dart';
 import '../../core/services/rule_cache_service.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/models/rule_model.dart';
@@ -297,12 +298,26 @@ class ChildModeNotifier extends Notifier<ChildDeviceState> {
   }
 
   /// Unlinks this device and clears local state (for testing or re-pairing).
-  Future<void> unlinkDevice() async {
+  /// Requires parent PIN verification if a PIN is set.
+  Future<void> unlinkDevice({String? pin}) async {
     final prefs = await SharedPreferences.getInstance();
+    final pinService = PinService(prefs);
+
+    // If a PIN is set, require it to unlink
+    if (pinService.hasPin) {
+      if (pin == null || pin.isEmpty) {
+        throw Exception('Parent PIN is required to unlink this device.');
+      }
+      if (!pinService.verifyPin(pin)) {
+        throw Exception('Incorrect PIN.');
+      }
+    }
+
     await prefs.remove(AppConstants.prefUserRole);
     await prefs.remove(AppConstants.prefFamilyId);
     await prefs.remove(AppConstants.prefChildId);
     await prefs.remove(AppConstants.prefChildName);
+    await pinService.clearPin();
 
     state = const ChildDeviceState();
   }

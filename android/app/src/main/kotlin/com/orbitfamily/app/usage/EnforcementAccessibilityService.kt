@@ -66,8 +66,8 @@ class EnforcementAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         val info = AccessibilityServiceInfo().apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         }
         serviceInfo = info
     }
@@ -82,14 +82,19 @@ class EnforcementAccessibilityService : AccessibilityService() {
     }
 
     private fun checkAndEnforce(packageName: String) {
+        // Check if parent unlock is still active (+15 min grace period)
+        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        val unlockUntilMs = prefs.getLong("orbit_parent_unlock_until_ms", 0)
+        if (unlockUntilMs > 0 && System.currentTimeMillis() < unlockUntilMs) {
+            stopPeriodicCheck()
+            return
+        }
+
         // Always-allowed apps are never blocked
         if (alwaysAllowedPackages.contains(packageName)) {
             stopPeriodicCheck()
             return
         }
-
-        val context = applicationContext
-        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
 
         val familyId = prefs.getString("flutter.linked_family_id", "") ?: ""
         if (familyId.isEmpty()) return
@@ -106,32 +111,32 @@ class EnforcementAccessibilityService : AccessibilityService() {
 
         // Check phone-wide block
         if (rules.allBlockedUntilMs != null && now < rules.allBlockedUntilMs) {
-            showLock(context)
+            showLock(applicationContext)
             return
         }
 
         // Check per-app block
         val blockUntilMs = rules.blockedApps[packageName]
         if (blockUntilMs != null && now < blockUntilMs) {
-            showLock(context)
+            showLock(applicationContext)
             return
         }
 
         // Check per-app daily limit
         val appLimitMs = rules.appLimits[packageName]
         if (appLimitMs != null) {
-            val appUsageMs = getAppUsageMs(context, packageName)
+            val appUsageMs = getAppUsageMs(applicationContext, packageName)
             if (appUsageMs >= appLimitMs) {
-                showLock(context)
+                showLock(applicationContext)
                 return
             }
         }
 
         // Check total daily limit
         if (rules.dailyLimitMs != null) {
-            val totalMs = getTotalUsageMs(context)
+            val totalMs = getTotalUsageMs(applicationContext)
             if (totalMs >= rules.dailyLimitMs) {
-                showLock(context)
+                showLock(applicationContext)
                 return
             }
         }
