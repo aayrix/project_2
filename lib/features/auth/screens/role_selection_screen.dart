@@ -17,7 +17,8 @@ class RoleSelectionScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
           child: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
               const Spacer(flex: 1),
 
