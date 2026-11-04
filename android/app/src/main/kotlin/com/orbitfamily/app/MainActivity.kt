@@ -10,6 +10,7 @@ import android.os.Process
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.orbitfamily.app.usage.EnforcementAccessibilityService
 import com.orbitfamily.app.usage.MonitoringForegroundService
 import com.orbitfamily.app.usage.UsageStatsHelper
 import com.orbitfamily.app.usage.UsageSyncWorker
@@ -120,6 +121,19 @@ class MainActivity : FlutterActivity() {
                         "$manufacturer $model"
                     }
                     result.success(name)
+                }
+
+                "isAccessibilityEnabled" -> {
+                    result.success(EnforcementAccessibilityService.isServiceEnabled(this))
+                }
+
+                "openAccessibilitySettings" -> {
+                    try {
+                        EnforcementAccessibilityService.openSettings(this)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ACCESSIBILITY_SETTINGS_ERROR", e.localizedMessage, null)
+                    }
                 }
 
                 else -> {

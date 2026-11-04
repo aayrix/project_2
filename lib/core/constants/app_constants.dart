@@ -38,4 +38,14 @@ class AppConstants {
 
   // MethodChannel
   static const String methodChannelName = 'com.orbitfamily.app/usage';
+
+  // Always-allowed apps (never blocked by enforcement).
+  // Must match the list in EnforcementAccessibilityService.kt.
+  static const List<String> alwaysAllowedPackages = [
+    'com.orbitfamily.app', // Orbit Family itself
+    'com.android.systemui', // System UI
+    'com.android.settings', // Settings (so child is not stuck)
+    'com.android.server.telecom', // Phone/dialer
+    'com.android.incallui', // In-call UI
+  ];
 }

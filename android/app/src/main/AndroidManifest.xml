@@ -63,6 +63,28 @@
             </intent-filter>
         </receiver>
 
+        <!-- Accessibility service for enforcing screen-time limits and app blocks.
+             The child must enable this in Settings > Accessibility. -->
+        <service
+            android:name=".usage.EnforcementAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- Full-screen lock activity shown when an app is blocked or a limit is reached. -->
+        <activity
+            android:name=".usage.LockActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:theme="@style/LaunchTheme" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

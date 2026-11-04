@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Orbit Family</string>
+    <string name="lock_title">Time\'s up. Ask your parent.</string>
+    <string name="lock_message">This app is blocked by your screen-time limit.</string>
+    <string name="lock_icon">Lock icon</string>
+    <string name="accessibility_service_description">Orbit Family screen-time enforcement. Detects the foreground app and enforces parental limits and blocks.</string>
+</resources>

@@ -112,4 +112,24 @@ class NativeUsageService {
       return 'Android Device';
     }
   }
+
+  /// Checks whether the AccessibilityService is enabled on the device.
+  Future<bool> isAccessibilityEnabled() async {
+    try {
+      final bool? enabled =
+          await _channel.invokeMethod<bool>('isAccessibilityEnabled');
+      return enabled ?? false;
+    } on PlatformException catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the system Accessibility settings screen.
+  Future<void> openAccessibilitySettings() async {
+    try {
+      await _channel.invokeMethod('openAccessibilitySettings');
+    } on PlatformException catch (e) {
+      debugPrint('Failed to open accessibility settings: ${e.message}');
+    }
+  }
 }

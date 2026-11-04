@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/child_mode_provider.dart';
+import '../../../core/providers/repository_providers.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../auth/screens/role_selection_screen.dart';
+import 'accessibility_disclosure_screen.dart';
 import 'permission_request_screen.dart';
 
 class ChildMonitoringScreen extends ConsumerStatefulWidget {
@@ -21,6 +23,7 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(childModeProvider.notifier).checkPermission();
+      _checkAccessibility();
     });
   }
 
@@ -36,6 +39,7 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
       // Recheck permission and run a fresh sync on resume
       ref.read(childModeProvider.notifier).checkPermission();
       ref.read(childModeProvider.notifier).syncUsageNow();
+      _checkAccessibility();
     }
   }
 
@@ -71,6 +75,20 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
           (route) => false,
         );
       }
+    }
+  }
+
+  /// Checks if Accessibility is enabled; if not, shows the disclosure screen.
+  Future<void> _checkAccessibility() async {
+    if (!mounted) return;
+    final enabled =
+        await ref.read(nativeUsageServiceProvider).isAccessibilityEnabled();
+    if (!enabled && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const AccessibilityDisclosureScreen(),
+        ),
+      );
     }
   }
 
