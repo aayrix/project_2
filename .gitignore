@@ -46,3 +46,6 @@ app.*.map.json
 
 # Firebase config contains real API keys - keep local only
 /android/app/google-services.json
+
+# Signing keystore - never commit private keys
+/android/orbit_upload_key.jks
