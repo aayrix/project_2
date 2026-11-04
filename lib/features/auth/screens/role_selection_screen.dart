@@ -20,7 +20,6 @@ class RoleSelectionScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-              const Spacer(flex: 1),
 
               // Orbit Logo
               Center(
@@ -56,7 +55,6 @@ class RoleSelectionScreen extends StatelessWidget {
                   fontStyle: FontStyle.italic,
                 ),
               ),
-              const Spacer(flex: 2),
 
               Text(
                 'Who is using this device?',
@@ -100,7 +98,6 @@ class RoleSelectionScreen extends StatelessWidget {
                 },
               ),
 
-              const Spacer(flex: 2),
             ],
           )),
         ),

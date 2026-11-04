@@ -51,7 +51,6 @@ class ParentAuthScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Spacer(flex: 1),
 
               // Orbit Icon & Title
               Center(
@@ -87,7 +86,6 @@ class ParentAuthScreen extends ConsumerWidget {
                   fontStyle: FontStyle.italic,
                 ),
               ),
-              const Spacer(flex: 2),
 
               // Explanatory card
               Container(
@@ -181,7 +179,6 @@ class ParentAuthScreen extends ConsumerWidget {
                       ),
               ),
 
-              const Spacer(flex: 3),
 
               // Footnote
               Text(
