@@ -54,18 +54,10 @@ class ParentAuthScreen extends ConsumerWidget {
 
               // Orbit Icon & Title
               Center(
-                child: Container(
+                child: Image.asset(
+                  'assets/logo/orbit_logo_on_light.png',
                   width: 80,
                   height: 80,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.bubble_chart_rounded,
-                    size: 44,
-                    color: colorScheme.primary,
-                  ),
                 ),
               ),
               const SizedBox(height: 20),

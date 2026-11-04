@@ -23,18 +23,10 @@ class RoleSelectionScreen extends StatelessWidget {
 
               // Orbit Logo
               Center(
-                child: Container(
+                child: Image.asset(
+                  'assets/logo/orbit_logo_on_light.png',
                   width: 88,
                   height: 88,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.bubble_chart_rounded,
-                    size: 48,
-                    color: colorScheme.primary,
-                  ),
                 ),
               ),
               const SizedBox(height: 24),

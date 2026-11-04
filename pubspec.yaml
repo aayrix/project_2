@@ -55,6 +55,17 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/logo/orbit_icon_square.png"
+  adaptive_icon_background: "#4B54A0"
+  adaptive_icon_foreground: "assets/logo/orbit_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/logo/orbit_icon_monochrome.png"
+  min_sdk_android: 26
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -65,6 +76,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/logo/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
