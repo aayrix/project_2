@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.preference.PreferenceManager
 import android.provider.Settings
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import org.json.JSONObject
 
@@ -36,6 +37,7 @@ class EnforcementAccessibilityService : AccessibilityService() {
 
     companion object {
         const val CHECK_INTERVAL_MS = 12000L
+        const val TAG = "OrbitEnforcement"
 
         // Must match AppConstants.alwaysAllowedPackages in Dart
         internal val alwaysAllowedPackages = setOf(
@@ -65,6 +67,7 @@ class EnforcementAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        Log.d(TAG, "AccessibilityService connected")
         val info = AccessibilityServiceInfo().apply {
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
@@ -74,6 +77,7 @@ class EnforcementAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString() ?: return
+        Log.d(TAG, "Window state changed: $packageName")
         checkAndEnforce(packageName)
     }
 
@@ -92,25 +96,37 @@ class EnforcementAccessibilityService : AccessibilityService() {
 
         // Always-allowed apps are never blocked
         if (alwaysAllowedPackages.contains(packageName)) {
+            Log.d(TAG, "Always-allowed: $packageName, skipping enforcement")
             stopPeriodicCheck()
             return
         }
 
         val familyId = prefs.getString("flutter.linked_family_id", "") ?: ""
-        if (familyId.isEmpty()) return
+        if (familyId.isEmpty()) {
+            Log.d(TAG, "No familyId in prefs, skipping enforcement")
+            return
+        }
         val childId = prefs.getString("flutter.linked_child_id", "") ?: ""
-        if (childId.isEmpty()) return
+        if (childId.isEmpty()) {
+            Log.d(TAG, "No childId in prefs, skipping enforcement")
+            return
+        }
 
         // Read cached rules (offline-capable)
         val rulesKey = "orbit_rules_${familyId}_${childId}"
         val rulesJson = prefs.getString(rulesKey, "") ?: ""
-        if (rulesJson.isEmpty()) return
+        if (rulesJson.isEmpty()) {
+            Log.d(TAG, "No cached rules for $childId, skipping enforcement")
+            return
+        }
         val rules = parseRules(rulesJson) ?: return
+        Log.d(TAG, "Loaded rules: dailyLimitMs=${rules.dailyLimitMs}, appLimits=${rules.appLimits}, blockedApps=${rules.blockedApps}, allBlockedUntilMs=${rules.allBlockedUntilMs}")
 
         val now = System.currentTimeMillis()
 
         // Check phone-wide block
         if (rules.allBlockedUntilMs != null && now < rules.allBlockedUntilMs) {
+            Log.d(TAG, "BLOCKED: phone-wide block active until ${rules.allBlockedUntilMs}")
             showLock(applicationContext)
             return
         }
@@ -118,6 +134,7 @@ class EnforcementAccessibilityService : AccessibilityService() {
         // Check per-app block
         val blockUntilMs = rules.blockedApps[packageName]
         if (blockUntilMs != null && now < blockUntilMs) {
+            Log.d(TAG, "BLOCKED: app $packageName blocked until $blockUntilMs")
             showLock(applicationContext)
             return
         }
@@ -126,7 +143,9 @@ class EnforcementAccessibilityService : AccessibilityService() {
         val appLimitMs = rules.appLimits[packageName]
         if (appLimitMs != null) {
             val appUsageMs = getAppUsageMs(applicationContext, packageName)
+            Log.d(TAG, "App $packageName: usageMs=$appUsageMs, limitMs=$appLimitMs")
             if (appUsageMs >= appLimitMs) {
+                Log.d(TAG, "BLOCKED: app $packageName limit reached ($appUsageMs >= $appLimitMs)")
                 showLock(applicationContext)
                 return
             }
@@ -135,17 +154,22 @@ class EnforcementAccessibilityService : AccessibilityService() {
         // Check total daily limit
         if (rules.dailyLimitMs != null) {
             val totalMs = getTotalUsageMs(applicationContext)
+            Log.d(TAG, "Total usage: usageMs=$totalMs, limitMs=${rules.dailyLimitMs}")
             if (totalMs >= rules.dailyLimitMs) {
+                Log.d(TAG, "BLOCKED: total daily limit reached ($totalMs >= ${rules.dailyLimitMs})")
                 showLock(applicationContext)
                 return
             }
         }
+
+        Log.d(TAG, "ALLOWED: $packageName (no limit or under limit)")
 
         // Not blocked - stop checking
         stopPeriodicCheck()
     }
 
     private fun showLock(context: Context) {
+        Log.d(TAG, "Showing lock screen")
         startPeriodicCheck()
 
         val intent = Intent(context, LockActivity::class.java).apply {

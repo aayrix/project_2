@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/child_mode_provider.dart';
 import '../../../core/providers/repository_providers.dart';
 import '../../../core/utils/date_utils.dart';
+import '../../../data/models/app_usage_model.dart';
 import '../../auth/screens/role_selection_screen.dart';
 import 'accessibility_disclosure_screen.dart';
 import 'permission_request_screen.dart';
@@ -327,7 +328,7 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Loaded Limits',
+                            'Enforcement Debug',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -335,6 +336,41 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
                         ],
                       ),
                       const SizedBox(height: 12),
+
+                      // Accessibility status
+                      FutureBuilder<bool>(
+                        future: ref
+                            .read(nativeUsageServiceProvider)
+                            .isAccessibilityEnabled(),
+                        builder: (context, snapshot) {
+                          final enabled = snapshot.data ?? false;
+                          return Row(
+                            children: [
+                              Icon(
+                                enabled
+                                    ? Icons.check_circle
+                                    : Icons.error,
+                                color: enabled ? Colors.green : Colors.red,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Accessibility Service: ${enabled ? "ENABLED" : "NOT ENABLED (enforcement will not work)"}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: enabled ? Colors.green : Colors.red,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Rules
                       ref
                           .watch(childCurrentRulesProvider(
                             (familyId: childState.familyId ?? '',
@@ -378,6 +414,27 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
                                   style: const TextStyle(fontSize: 13),
                                 ),
                               ],
+                              // Per-app limits detail
+                              if (rules.appLimits.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'App limits:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                ...rules.appLimits.entries.map((entry) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(left: 16, top: 2),
+                                    child: Text(
+                                      '${entry.key}: ${AppDateUtils.formatDurationMs(entry.value)}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  );
+                                }).toList(),
+                              ],
                               const SizedBox(height: 8),
                               Text(
                                 'Enforcement works offline from cached rules.',
@@ -392,6 +449,49 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
                         },
                         loading: () => const Text('Loading rules...'),
                         error: (_, __) => const Text('Error loading rules.'),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Today's usage per app (native)
+                      FutureBuilder<Map<String, AppUsageModel>>(
+                        future: ref
+                            .read(nativeUsageServiceProvider)
+                            .getTodayUsage(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Text(
+                              'Usage data: no apps tracked yet',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            );
+                          }
+                          final usage = snapshot.data!;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Today\'s usage (native):',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              ...usage.entries.map((entry) {
+                                final app = entry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(left: 16, top: 2),
+                                  child: Text(
+                                    '${app.packageName}: ${AppDateUtils.formatDurationMs(app.ms)}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                );
+                              }).toList(),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
