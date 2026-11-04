@@ -244,8 +244,6 @@ class _ChildCard extends ConsumerWidget {
                       children: [
                         Text(
                           child.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -253,8 +251,6 @@ class _ChildCard extends ConsumerWidget {
                         const SizedBox(height: 2),
                         Text(
                           '${child.age} years old',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -262,34 +258,28 @@ class _ChildCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                ],
-              ),
-              // Chips row: full width so they wrap instead of overflowing
-              if (child.isLinked || _isSignalStale(child.lastSeen))
-                Row(
-                  children: [
-                    _buildStatusBadge(colorScheme),
-                    if (child.isLinked && _isSignalStale(child.lastSeen))
-                      const SizedBox(width: 8),
-                    if (child.isLinked && _isSignalStale(child.lastSeen))
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'No signal from this phone',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange,
-                          ),
+                  _buildStatusBadge(colorScheme),
+                  if (child.isLinked && _isSignalStale(child.lastSeen)) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'No signal from this phone',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange,
                         ),
                       ),
-              ],
-                ),
+                    ),
+                  ],
+                ],
+              ),
               const Divider(height: 28),
 
               // Bottom Stats Row: Today's Screen Time & Last Seen
