@@ -221,6 +221,7 @@ class _ChildCard extends ConsumerWidget {
             children: [
               // Header: Name, Age, Status Pill
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
                     radius: 24,
@@ -244,6 +245,8 @@ class _ChildCard extends ConsumerWidget {
                       children: [
                         Text(
                           child.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -251,6 +254,8 @@ class _ChildCard extends ConsumerWidget {
                         const SizedBox(height: 2),
                         Text(
                           '${child.age} years old',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -258,32 +263,42 @@ class _ChildCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  _buildStatusBadge(colorScheme),
-                  if (child.isLinked && _isSignalStale(child.lastSeen)) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'No signal from this phone',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.orange,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
+              // Status badges on separate full-width row to avoid overflow
+              if (child.isLinked || _isSignalStale(child.lastSeen))
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      _buildStatusBadge(colorScheme),
+                      if (child.isLinked && _isSignalStale(child.lastSeen)) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'No signal from this phone',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               const Divider(height: 28),
 
               // Bottom Stats Row: Today's Screen Time & Last Seen
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Screen time stat
                   Expanded(
@@ -292,6 +307,8 @@ class _ChildCard extends ConsumerWidget {
                       children: [
                         Text(
                           'Today\'s Screen Time',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -315,29 +332,35 @@ class _ChildCard extends ConsumerWidget {
                     ),
                   ),
 
-                  // Last seen stat
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Last Seen',
-                        style: theme.textTheme.labelSmall?.copyWith(
+                  // Last seen stat + chevron in a flexible column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Last Seen',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          AppDateUtils.formatLastSeen(child.lastSeen),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Icon(
+                          Icons.chevron_right_rounded,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        AppDateUtils.formatLastSeen(child.lastSeen),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: colorScheme.onSurfaceVariant,
+                      ],
+                    ),
                   ),
                 ],
               ),
