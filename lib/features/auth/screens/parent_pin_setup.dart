@@ -104,7 +104,8 @@ class _ParentPinSetupScreenState extends ConsumerState<ParentPinSetupScreen> {
             key: _formKey,
             child: SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 32),
                 Center(
