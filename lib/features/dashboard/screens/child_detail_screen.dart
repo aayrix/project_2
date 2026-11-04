@@ -49,7 +49,8 @@ class ChildDetailScreen extends ConsumerWidget {
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeaderCard(context, child, ref),
                 const SizedBox(height: 20),

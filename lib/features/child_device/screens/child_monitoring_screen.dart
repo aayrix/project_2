@@ -129,7 +129,8 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Active Monitoring Hero Banner
               Container(
