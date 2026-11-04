@@ -278,4 +278,77 @@ class FamilyRepository {
       'lastSeen': FieldValue.serverTimestamp(),
     });
   }
+
+  /// Updates a child's name and/or age.
+  Future<void> updateChild({
+    required String familyId,
+    required String childId,
+    required String name,
+    required int age,
+  }) async {
+    await _firestore
+        .collection(AppConstants.colFamilies)
+        .doc(familyId)
+        .collection(AppConstants.colChildren)
+        .doc(childId)
+        .update({
+      'name': name.trim(),
+      'age': age,
+    });
+  }
+
+  /// Removes a child from the family.
+  /// Deletes the child document, all subcollections (usageDays, rules),
+  /// and any unused linkCodes for that child.
+  Future<void> removeChild({
+    required String familyId,
+    required String childId,
+    required String? linkCode,
+  }) async {
+    final batch = _firestore.batch();
+
+    // 1. Delete all usageDays documents
+    final usageDaysSnap = await _firestore
+        .collection(AppConstants.colFamilies)
+        .doc(familyId)
+        .collection(AppConstants.colChildren)
+        .doc(childId)
+        .collection(AppConstants.colUsageDays)
+        .get();
+    for (final doc in usageDaysSnap.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // 2. Delete all rules documents
+    final rulesSnap = await _firestore
+        .collection(AppConstants.colFamilies)
+        .doc(familyId)
+        .collection(AppConstants.colChildren)
+        .doc(childId)
+        .collection(AppConstants.colRules)
+        .get();
+    for (final doc in rulesSnap.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // 3. Delete the child document itself
+    final childRef = _firestore
+        .collection(AppConstants.colFamilies)
+        .doc(familyId)
+        .collection(AppConstants.colChildren)
+        .doc(childId);
+    batch.delete(childRef);
+
+    await batch.commit();
+
+    // 4. Delete unused linkCodes/{code} (if still unlinked)
+    if (linkCode != null && linkCode.isNotEmpty) {
+      try {
+        await _firestore
+            .collection(AppConstants.colLinkCodes)
+            .doc(linkCode)
+            .delete();
+      } catch (_) {}
+    }
+  }
 }

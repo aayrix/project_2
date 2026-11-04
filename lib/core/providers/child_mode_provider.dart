@@ -9,6 +9,7 @@ import '../../core/services/pin_service.dart';
 import '../../core/services/rule_cache_service.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/models/rule_model.dart';
+import '../../data/models/child_model.dart';
 import 'repository_providers.dart';
 import 'family_provider.dart';
 
@@ -61,6 +62,8 @@ class ChildDeviceState {
 }
 
 class ChildModeNotifier extends Notifier<ChildDeviceState> {
+  StreamSubscription<ChildModel?>? _childRemovalSubscription;
+
   @override
   ChildDeviceState build() {
     // Schedule asynchronous initialization after initial build
@@ -112,7 +115,34 @@ class ChildModeNotifier extends Notifier<ChildDeviceState> {
           );
       // Run initial sync
       await syncUsageNow();
+      // Listen for child removal (parent deletes child from their device)
+      _startChildRemovalListener();
     }
+  }
+
+  /// Listens to the child document. If the parent removes the child,
+  /// this device clears local state and stops enforcement.
+  void _startChildRemovalListener() {
+    if (state.familyId == null || state.childId == null) return;
+
+    _childRemovalSubscription = ref
+        .read(familyRepositoryProvider)
+        .streamChild(state.familyId!, state.childId!)
+        .listen((child) {
+      // If child document no longer exists or deviceUid is null, parent removed us
+      if (child == null || child.deviceUid == null) {
+        _handleChildRemoved();
+      }
+    }, onError: (e) {
+      debugPrint('Child removal listener error: $e');
+    });
+  }
+
+  /// Handles child removal by parent: clear local state, stop monitoring, return to role screen.
+  Future<void> _handleChildRemoved() async {
+    _childRemovalSubscription?.cancel();
+    await unlinkDevice();
+    debugPrint('Child device removed by parent - local state cleared');
   }
 
   /// Refreshes the usage permission status (e.g. after returning from settings).

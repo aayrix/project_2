@@ -115,6 +115,49 @@ class FamilyController extends AsyncNotifier<ChildModel?> {
       return null;
     }
   }
+
+  /// Updates a child's name and/or age.
+  Future<void> updateChild({
+    required String familyId,
+    required String childId,
+    required String name,
+    required int age,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final familyRepo = ref.read(familyRepositoryProvider);
+      await familyRepo.updateChild(
+        familyId: familyId,
+        childId: childId,
+        name: name,
+        age: age,
+      );
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Removes a child from the family, including all subcollections and
+  /// unused link codes.
+  Future<void> removeChild({
+    required String familyId,
+    required String childId,
+    required String? linkCode,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final familyRepo = ref.read(familyRepositoryProvider);
+      await familyRepo.removeChild(
+        familyId: familyId,
+        childId: childId,
+        linkCode: linkCode,
+      );
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 }
 
 final familyControllerProvider =

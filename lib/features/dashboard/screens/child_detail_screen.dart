@@ -166,10 +166,190 @@ class ChildDetailScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // Edit & Remove actions
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showEditChildDialog(
+                    context, ref, child, familyId, childId,
+                  ),
+                  icon: const Icon(Icons.edit_rounded, size: 18),
+                  label: const Text('Edit child'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _confirmRemoveChild(
+                    context, ref, child, familyId, childId,
+                  ),
+                  icon: const Icon(Icons.delete_rounded, size: 18),
+                  label: const Text('Remove child'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    foregroundColor: Colors.red,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  /// Shows dialog to edit child name and age.
+  Future<void> _showEditChildDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ChildModel child,
+    String familyId,
+    String childId,
+  ) async {
+    final nameController = TextEditingController(text: child.name);
+    final ageController = TextEditingController(text: child.age.toString());
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Child'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter a name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: ageController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Age'),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter an age';
+                  }
+                  final parsed = int.tryParse(val);
+                  if (parsed == null || parsed < 2 || parsed > 18) {
+                    return 'Please enter a valid age (2 - 18)';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(ctx).pop(true);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(familyControllerProvider.notifier).updateChild(
+          familyId: familyId,
+          childId: childId,
+          name: nameController.text.trim(),
+          age: int.parse(ageController.text.trim()),
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Child updated successfully.')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update child: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  /// Shows confirmation dialog to remove child.
+  Future<void> _confirmRemoveChild(
+    BuildContext context,
+    WidgetRef ref,
+    ChildModel child,
+    String familyId,
+    String childId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Child?'),
+        content: Text(
+          'This will permanently delete "${child.name}" and all their data. '
+          'This cannot be undone. The linked device will be disconnected.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(familyControllerProvider.notifier).removeChild(
+          familyId: familyId,
+          childId: childId,
+          linkCode: child.linkCode,
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Child removed successfully.')),
+          );
+          Navigator.of(context).pop(); // Return to parent home
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to remove child: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildUsageContent(BuildContext context, UsageDayModel? usage) {
