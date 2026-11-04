@@ -15,9 +15,10 @@ class RoleSelectionScreen extends StatelessWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               const Spacer(flex: 1),
 
               // Orbit Logo
@@ -100,7 +101,7 @@ class RoleSelectionScreen extends StatelessWidget {
 
               const Spacer(flex: 2),
             ],
-          ),
+          )),
         ),
       ),
     );

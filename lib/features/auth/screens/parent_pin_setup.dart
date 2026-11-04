@@ -102,10 +102,11 @@ class _ParentPinSetupScreenState extends ConsumerState<ParentPinSetupScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 32),
                 Center(
                   child: Container(
                     width: 72,
@@ -211,7 +212,7 @@ class _ParentPinSetupScreenState extends ConsumerState<ParentPinSetupScreen> {
                 ),
                 const SizedBox(height: 24),
               ],
-            ),
+            )),
           ),
         ),
       ),
