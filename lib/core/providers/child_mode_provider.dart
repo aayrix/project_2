@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/rule_cache_service.dart';
 import '../../core/utils/date_utils.dart';
+import '../../data/models/rule_model.dart';
 import 'repository_providers.dart';
+import 'family_provider.dart';
 
 class ChildDeviceState {
   final bool isLinked;
@@ -15,6 +19,7 @@ class ChildDeviceState {
   final bool isSyncing;
   final DateTime? lastSyncTime;
   final String? errorMessage;
+  final RuleModel? currentRules;
 
   const ChildDeviceState({
     this.isLinked = false,
@@ -25,6 +30,7 @@ class ChildDeviceState {
     this.isSyncing = false,
     this.lastSyncTime,
     this.errorMessage,
+    this.currentRules,
   });
 
   ChildDeviceState copyWith({
@@ -36,6 +42,7 @@ class ChildDeviceState {
     bool? isSyncing,
     DateTime? lastSyncTime,
     String? errorMessage,
+    RuleModel? currentRules,
   }) {
     return ChildDeviceState(
       isLinked: isLinked ?? this.isLinked,
@@ -46,6 +53,7 @@ class ChildDeviceState {
       isSyncing: isSyncing ?? this.isSyncing,
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
       errorMessage: errorMessage,
+      currentRules: currentRules ?? this.currentRules,
     );
   }
 }
@@ -72,12 +80,25 @@ class ChildModeNotifier extends Notifier<ChildDeviceState> {
         childId != null &&
         childId.isNotEmpty;
 
+    // Load cached rules for offline support
+    RuleModel? cachedRules;
+    if (isLinked) {
+      cachedRules = await RuleCacheService.loadRules(
+        familyId: familyId,
+        childId: childId,
+      );
+      if (cachedRules != null) {
+        debugPrint('RuleCacheService: loaded cached rules for child');
+      }
+    }
+
     state = state.copyWith(
       isLinked: isLinked,
       familyId: familyId,
       childId: childId,
       childName: childName,
       hasUsagePermission: hasPerm,
+      currentRules: cachedRules,
     );
 
     if (isLinked) {
@@ -289,3 +310,11 @@ class ChildModeNotifier extends Notifier<ChildDeviceState> {
 
 final childModeProvider =
     NotifierProvider<ChildModeNotifier, ChildDeviceState>(ChildModeNotifier.new);
+
+/// Exposes the current rules for the linked child (live from Firestore).
+/// Use `childRulesCacheProvider` alongside it to cache changes locally.
+final childCurrentRulesProvider =
+    Provider.family<AsyncValue<RuleModel?>, ({String familyId, String childId})>(
+        (ref, arg) {
+  return ref.watch(childRulesStreamProvider(arg));
+});

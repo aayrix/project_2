@@ -294,6 +294,93 @@ class _ChildMonitoringScreenState extends ConsumerState<ChildMonitoringScreen>
               ),
               const SizedBox(height: 24),
 
+              // Loaded Limits (debug/info)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.gavel_outlined,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Loaded Limits',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ref
+                          .watch(childCurrentRulesProvider(
+                            (familyId: childState.familyId ?? '',
+                                childId: childState.childId ?? ''),
+                          ))
+                          .when(
+                        data: (rules) {
+                          if (rules == null) {
+                            return const Text(
+                              'No rules loaded yet.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                              ),
+                            );
+                          }
+                          final dailyLimit = rules.dailyLimitMs;
+                          final blockedCount = rules.blockedApps.length;
+                          final allBlocked = rules.allBlockedUntil != null;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Daily total limit: ${dailyLimit == null ? 'Unlimited' : AppDateUtils.formatDurationMs(dailyLimit)}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Blocked apps: $blockedCount',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Phone blocked: ${allBlocked ? 'Yes' : 'No'}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              if (rules.allBlockedUntil != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Block until: ${AppDateUtils.formatLastSeen(rules.allBlockedUntil)}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              Text(
+                                'Enforcement works offline from cached rules.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                        loading: () => const Text('Loading rules...'),
+                        error: (_, __) => const Text('Error loading rules.'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // Transparency & Privacy Info
               Text(
                 'Transparency Details',
